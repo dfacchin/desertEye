@@ -1,0 +1,14 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(flutter --version:*)",
+      "WebFetch(domain:pub.dev)",
+      "Bash(flutter create:*)",
+      "Bash(where:*)",
+      "Bash(cmd.exe /c \"where flutter\")",
+      "Bash(cmd.exe /c \"dir C:\\\\src\\\\flutter\\\\bin\\\\flutter.bat 2>nul && echo Found || dir C:\\\\flutter\\\\bin\\\\flutter.bat 2>nul && echo Found || dir %USERPROFILE%\\\\flutter\\\\bin\\\\flutter.bat 2>nul && echo Found || echo Not found in common locations\")",
+      "Bash(git add:*)",
+      "Bash(git commit:*)"
+    ]
+  }
+}
