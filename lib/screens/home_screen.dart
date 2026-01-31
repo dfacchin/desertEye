@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:latlong2/latlong.dart';
@@ -22,6 +23,8 @@ import '../widgets/sos_button.dart';
 import '../widgets/brightness_control.dart';
 import '../models/chat_message.dart';
 import '../models/emergency_alert.dart';
+import '../services/notification_service.dart';
+import '../services/background_service.dart';
 
 class HomeScreen extends StatefulWidget {
   const HomeScreen({super.key});
@@ -37,6 +40,8 @@ class _HomeScreenState extends State<HomeScreen> {
   final ConnectivityService _connectivityService = ConnectivityService();
   final TileCacheService _tileCacheService = TileCacheService();
   final MeshtasticService _meshtasticService = MeshtasticService();
+  final NotificationService _notificationService = NotificationService();
+  final BackgroundServiceManager _backgroundService = BackgroundServiceManager();
 
   LatLng? _userPosition;
   double _userHeading = 0;
@@ -69,6 +74,9 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _hideControlsTimer;
   static const Duration _hideDelay = Duration(seconds: 30);
 
+  // Orientation state
+  bool _isLandscapeLocked = false;
+
   StreamSubscription<bool>? _connectivitySubscription;
   StreamSubscription<LocationData>? _locationSubscription;
   StreamSubscription<double>? _compassSubscription;
@@ -87,6 +95,12 @@ class _HomeScreenState extends State<HomeScreen> {
   Future<void> _initialize() async {
     // Mantieni schermo sempre attivo
     await WakelockPlus.enable();
+
+    // Inizializza servizio notifiche
+    await _notificationService.initialize();
+
+    // Avvia servizio background per mantenere l'app attiva
+    await _backgroundService.startService();
 
     // Avvia timer auto-hide
     _resetHideTimer();
@@ -120,6 +134,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _chatSubscription = _meshtasticService.chatStream.listen((message) {
       if (!_isChatOpen) {
         setState(() => _unreadChatCount++);
+        // Invia notifica di sistema
+        _notificationService.showMessageNotification(
+          senderName: message.fromNodeName,
+          message: message.text,
+          nodeId: message.fromNodeId,
+        );
       }
     });
 
@@ -127,8 +147,16 @@ class _HomeScreenState extends State<HomeScreen> {
     _emergencySubscription = _meshtasticService.emergencyStream.listen((alert) {
       if (alert.isActive) {
         setState(() => _activeEmergency = alert);
+        // Invia notifica SOS urgente
+        _notificationService.showSosNotification(
+          senderName: alert.nodeName,
+          message: alert.message,
+          nodeId: alert.nodeId,
+        );
       } else {
         setState(() => _activeEmergency = null);
+        // Annulla notifica SOS
+        _notificationService.cancelSosNotification();
       }
     });
 
@@ -242,6 +270,28 @@ class _HomeScreenState extends State<HomeScreen> {
           break;
       }
     });
+  }
+
+  void _toggleOrientation() {
+    setState(() {
+      _isLandscapeLocked = !_isLandscapeLocked;
+    });
+
+    if (_isLandscapeLocked) {
+      // Forza landscape
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    } else {
+      // Permetti tutti gli orientamenti
+      SystemChrome.setPreferredOrientations([
+        DeviceOrientation.portraitUp,
+        DeviceOrientation.portraitDown,
+        DeviceOrientation.landscapeLeft,
+        DeviceOrientation.landscapeRight,
+      ]);
+    }
   }
 
   Future<void> _startTracking() async {
@@ -602,12 +652,14 @@ class _HomeScreenState extends State<HomeScreen> {
                       onClearTracks: _gpxTracks.isNotEmpty ? _clearTracks : null,
                       onToggleTracking: _toggleTracking,
                       onToggleMeshtastic: _toggleMeshtastic,
+                      onToggleOrientation: _toggleOrientation,
                       hasLocation: _userPosition != null,
                       isOnline: _isOnline,
                       hasGpxTracks: _gpxTracks.isNotEmpty,
                       trackingMode: _trackingMode,
                       isMeshtasticConnected: _isMeshtasticConnected,
                       meshtasticNodeCount: _meshtasticNodes.length,
+                      isLandscape: _isLandscapeLocked,
                     ),
                   ),
                 ),

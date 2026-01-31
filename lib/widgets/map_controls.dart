@@ -15,12 +15,14 @@ class MapControls extends StatelessWidget {
   final VoidCallback? onClearTracks;
   final VoidCallback onToggleTracking;
   final VoidCallback onToggleMeshtastic;
+  final VoidCallback onToggleOrientation;
   final bool hasLocation;
   final bool isOnline;
   final bool hasGpxTracks;
   final TrackingMode trackingMode;
   final bool isMeshtasticConnected;
   final int meshtasticNodeCount;
+  final bool isLandscape;
 
   const MapControls({
     super.key,
@@ -30,12 +32,14 @@ class MapControls extends StatelessWidget {
     this.onClearTracks,
     required this.onToggleTracking,
     required this.onToggleMeshtastic,
+    required this.onToggleOrientation,
     required this.hasLocation,
     required this.isOnline,
     this.hasGpxTracks = false,
     required this.trackingMode,
     this.isMeshtasticConnected = false,
     this.meshtasticNodeCount = 0,
+    this.isLandscape = false,
   });
 
   @override
@@ -43,6 +47,21 @@ class MapControls extends StatelessWidget {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
+          // Orientation toggle button
+          FloatingActionButton(
+            heroTag: 'orientation',
+            onPressed: onToggleOrientation,
+            tooltip: isLandscape ? 'Modalità portrait' : 'Modalità landscape',
+            backgroundColor: isLandscape ? Colors.purple.shade100 : Colors.white,
+            child: OrientationAwareIcon(
+              child: Icon(
+                isLandscape ? Icons.stay_current_portrait : Icons.stay_current_landscape,
+                color: isLandscape ? Colors.purple : Colors.grey,
+              ),
+            ),
+          ),
+          const SizedBox(height: 16),
+
           // Meshtastic Bluetooth button
           Stack(
             children: [
