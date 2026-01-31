@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'orientation_aware_icon.dart';
 
 /// Modalità tracking
 enum TrackingMode {
@@ -39,11 +40,9 @@ class MapControls extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Positioned(
-      right: 16,
-      bottom: 32,
-      child: Column(
-        children: [
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
           // Meshtastic Bluetooth button
           Stack(
             children: [
@@ -56,11 +55,13 @@ class MapControls extends StatelessWidget {
                 backgroundColor: isMeshtasticConnected
                     ? Colors.green.shade100
                     : Colors.white,
-                child: Icon(
-                  isMeshtasticConnected
-                      ? Icons.bluetooth_connected
-                      : Icons.bluetooth,
-                  color: isMeshtasticConnected ? Colors.green : Colors.grey,
+                child: OrientationAwareIcon(
+                  child: Icon(
+                    isMeshtasticConnected
+                        ? Icons.bluetooth_connected
+                        : Icons.bluetooth,
+                    color: isMeshtasticConnected ? Colors.green : Colors.grey,
+                  ),
                 ),
               ),
               // Badge con numero nodi
@@ -99,7 +100,9 @@ class MapControls extends StatelessWidget {
               heroTag: 'download',
               onPressed: onDownloadMap,
               tooltip: 'Scarica mappa offline',
-              child: const Icon(Icons.download),
+              child: const OrientationAwareIcon(
+                child: Icon(Icons.download),
+              ),
             ),
           if (isOnline) const SizedBox(height: 16),
 
@@ -109,7 +112,7 @@ class MapControls extends StatelessWidget {
             onPressed: hasLocation ? onToggleTracking : onRecenter,
             tooltip: _getTrackingTooltip(),
             backgroundColor: _getTrackingColor(),
-            child: _getTrackingIcon(),
+            child: OrientationAwareIcon(child: _getTrackingIcon()),
           ),
           const SizedBox(height: 16),
 
@@ -118,7 +121,9 @@ class MapControls extends StatelessWidget {
             heroTag: 'loadgpx',
             onPressed: onLoadGpx,
             tooltip: 'Carica traccia GPX',
-            child: const Icon(Icons.file_open),
+            child: const OrientationAwareIcon(
+              child: Icon(Icons.file_open),
+            ),
           ),
 
           // Clear tracks button (solo se ci sono tracce)
@@ -129,12 +134,13 @@ class MapControls extends StatelessWidget {
               onPressed: onClearTracks,
               tooltip: 'Cancella tracce',
               backgroundColor: Colors.red.shade100,
-              child: const Icon(Icons.clear_all),
+              child: const OrientationAwareIcon(
+                child: Icon(Icons.clear_all),
+              ),
             ),
           ],
         ],
-      ),
-    );
+      );
   }
 
   String _getTrackingTooltip() {

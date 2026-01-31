@@ -66,6 +66,12 @@ dependencies:
   # Local storage for device persistence
   shared_preferences: ^2.2.2
 
+  # Screen wakelock - keep screen on
+  wakelock_plus: ^1.2.8
+
+  # Screen brightness control
+  screen_brightness: ^1.0.1
+
 dev_dependencies:
   flutter_test:
     sdk: flutter

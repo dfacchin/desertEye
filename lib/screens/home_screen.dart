@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:latlong2/latlong.dart';
+import 'package:wakelock_plus/wakelock_plus.dart';
 import '../constants/map_constants.dart';
 import '../models/gpx_track.dart';
 import '../models/meshtastic_node.dart';
@@ -18,6 +19,7 @@ import '../widgets/download_progress_dialog.dart';
 import '../widgets/node_info_panel.dart';
 import '../widgets/chat_panel.dart';
 import '../widgets/sos_button.dart';
+import '../widgets/brightness_control.dart';
 import '../models/chat_message.dart';
 import '../models/emergency_alert.dart';
 
@@ -62,6 +64,11 @@ class _HomeScreenState extends State<HomeScreen> {
   // Auto-connect state
   String? _autoConnectMessage;
 
+  // Auto-hide UI controls
+  bool _controlsVisible = true;
+  Timer? _hideControlsTimer;
+  static const Duration _hideDelay = Duration(seconds: 30);
+
   StreamSubscription<bool>? _connectivitySubscription;
   StreamSubscription<LocationData>? _locationSubscription;
   StreamSubscription<double>? _compassSubscription;
@@ -78,6 +85,12 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   Future<void> _initialize() async {
+    // Mantieni schermo sempre attivo
+    await WakelockPlus.enable();
+
+    // Avvia timer auto-hide
+    _resetHideTimer();
+
     // Inizializza monitoraggio connettività
     await _connectivityService.initialize();
     _isOnline = _connectivityService.isOnline;
@@ -513,6 +526,8 @@ class _HomeScreenState extends State<HomeScreen> {
 
   @override
   void dispose() {
+    _hideControlsTimer?.cancel();
+    WakelockPlus.disable();
     _connectivitySubscription?.cancel();
     _locationSubscription?.cancel();
     _compassSubscription?.cancel();
@@ -531,92 +546,136 @@ class _HomeScreenState extends State<HomeScreen> {
   Widget build(BuildContext context) {
     final center = _userPosition ?? MapConstants.defaultPosition;
 
+    // Determina se mostrare i controlli (sempre visibili se ci sono notifiche/emergenze)
+    final showControls = _controlsVisible || _shouldKeepControlsVisible();
+
     return Scaffold(
-      body: Stack(
-        children: [
-          if (_isLoading)
-            const Center(child: CircularProgressIndicator())
-          else
-            MapView(
-              mapController: _mapController,
-              center: center,
-              userPosition: _userPosition,
-              userHeading: _userHeading,
-              gpxTracks: _gpxTracks,
+      body: GestureDetector(
+        behavior: HitTestBehavior.translucent,
+        onTap: _onUserInteraction,
+        onPanDown: (_) => _onUserInteraction(),
+        onPanUpdate: (_) => _onUserInteraction(),
+        child: Stack(
+          children: [
+            if (_isLoading)
+              const Center(child: CircularProgressIndicator())
+            else
+              MapView(
+                mapController: _mapController,
+                center: center,
+                userPosition: _userPosition,
+                userHeading: _userHeading,
+                gpxTracks: _gpxTracks,
+                isOffline: !_isOnline,
+                hasCachedTiles: _hasCachedTiles,
+                tileCacheService: _tileCacheService,
+                trackingMode: _trackingMode,
+                downloadBounds: _downloadBounds,
+                isDownloading: _isDownloading,
+                meshtasticNodes: _meshtasticNodes,
+                onNodeTap: _onNodeTap,
+                emergencyNodeIds: _activeEmergency != null
+                    ? {_activeEmergency!.nodeId}
+                    : const {},
+              ),
+
+            // Indicatore offline (sempre visibile)
+            OfflineIndicator(
               isOffline: !_isOnline,
               hasCachedTiles: _hasCachedTiles,
-              tileCacheService: _tileCacheService,
-              trackingMode: _trackingMode,
-              downloadBounds: _downloadBounds,
-              isDownloading: _isDownloading,
-              meshtasticNodes: _meshtasticNodes,
-              onNodeTap: _onNodeTap,
-              emergencyNodeIds: _activeEmergency != null
-                  ? {_activeEmergency!.nodeId}
-                  : const {},
             ),
 
-          // Indicatore offline
-          OfflineIndicator(
-            isOffline: !_isOnline,
-            hasCachedTiles: _hasCachedTiles,
-          ),
+            // Controlli mappa (auto-hide)
+            if (!_isLoading)
+              Positioned(
+                right: 16,
+                bottom: 32,
+                child: AnimatedOpacity(
+                  opacity: showControls ? 1.0 : 0.0,
+                  duration: const Duration(milliseconds: 300),
+                  child: IgnorePointer(
+                    ignoring: !showControls,
+                    child: MapControls(
+                      onRecenter: _recenterMap,
+                      onLoadGpx: _loadGpxTrack,
+                      onDownloadMap: _downloadMapRegion,
+                      onClearTracks: _gpxTracks.isNotEmpty ? _clearTracks : null,
+                      onToggleTracking: _toggleTracking,
+                      onToggleMeshtastic: _toggleMeshtastic,
+                      hasLocation: _userPosition != null,
+                      isOnline: _isOnline,
+                      hasGpxTracks: _gpxTracks.isNotEmpty,
+                      trackingMode: _trackingMode,
+                      isMeshtasticConnected: _isMeshtasticConnected,
+                      meshtasticNodeCount: _meshtasticNodes.length,
+                    ),
+                  ),
+                ),
+              ),
 
-          // Controlli mappa
-          if (!_isLoading)
-            MapControls(
-              onRecenter: _recenterMap,
-              onLoadGpx: _loadGpxTrack,
-              onDownloadMap: _downloadMapRegion,
-              onClearTracks: _gpxTracks.isNotEmpty ? _clearTracks : null,
-              onToggleTracking: _toggleTracking,
-              onToggleMeshtastic: _toggleMeshtastic,
-              hasLocation: _userPosition != null,
-              isOnline: _isOnline,
-              hasGpxTracks: _gpxTracks.isNotEmpty,
-              trackingMode: _trackingMode,
-              isMeshtasticConnected: _isMeshtasticConnected,
-              meshtasticNodeCount: _meshtasticNodes.length,
-            ),
-
-          // Chat toggle button (sempre visibile, posizionato a sinistra)
-          Positioned(
-            left: 16,
-            bottom: 32,
-            child: ChatToggleButton(
-              isOpen: _isChatOpen,
-              unreadCount: _unreadChatCount,
-              isConnected: _isMeshtasticConnected,
-              onTap: _toggleChat,
-            ),
-          ),
-
-          // SOS button (sopra il pulsante chat)
-          Positioned(
-            left: 16,
-            bottom: 110,
-            child: SosButton(
-              isConnected: _isMeshtasticConnected,
-              userPosition: _userPosition,
-              onSendSos: _sendSosMessage,
-              incomingEmergency: _activeEmergency,
-              onNavigateToEmergency: _navigateToEmergency,
-              onDismissEmergency: _dismissEmergency,
-            ),
-          ),
-
-          // Chat panel
-          if (_isChatOpen && _isMeshtasticConnected)
+            // Chat toggle button (auto-hide, ma visibile se ci sono messaggi non letti)
             Positioned(
-              right: 0,
-              top: 60,
-              bottom: 170,
-              child: ChatPanel(
-                meshtasticService: _meshtasticService,
-                onClose: _toggleChat,
+              left: 16,
+              bottom: 32,
+              child: AnimatedOpacity(
+                opacity: (showControls || _unreadChatCount > 0) ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: IgnorePointer(
+                  ignoring: !(showControls || _unreadChatCount > 0),
+                  child: ChatToggleButton(
+                    isOpen: _isChatOpen,
+                    unreadCount: _unreadChatCount,
+                    isConnected: _isMeshtasticConnected,
+                    onTap: _toggleChat,
+                  ),
+                ),
               ),
             ),
-        ],
+
+            // SOS button (auto-hide, ma visibile se c'è emergenza)
+            Positioned(
+              left: 16,
+              bottom: 110,
+              child: AnimatedOpacity(
+                opacity: (showControls || _activeEmergency != null) ? 1.0 : 0.0,
+                duration: const Duration(milliseconds: 300),
+                child: IgnorePointer(
+                  ignoring: !(showControls || _activeEmergency != null),
+                  child: SosButton(
+                    isConnected: _isMeshtasticConnected,
+                    userPosition: _userPosition,
+                    onSendSos: _sendSosMessage,
+                    incomingEmergency: _activeEmergency,
+                    onNavigateToEmergency: _navigateToEmergency,
+                    onDismissEmergency: _dismissEmergency,
+                  ),
+                ),
+              ),
+            ),
+
+            // Brightness control (auto-hide)
+            Positioned(
+              right: 8,
+              top: MediaQuery.of(context).size.height * 0.25,
+              child: BrightnessControl(
+                isVisible: showControls,
+                onInteraction: _onUserInteraction,
+              ),
+            ),
+
+            // Chat panel
+            if (_isChatOpen && _isMeshtasticConnected)
+              Positioned(
+                right: 0,
+                top: 60,
+                bottom: 170,
+                child: ChatPanel(
+                  meshtasticService: _meshtasticService,
+                  onClose: _toggleChat,
+                ),
+              ),
+          ],
+        ),
       ),
     );
   }
@@ -647,6 +706,47 @@ class _HomeScreenState extends State<HomeScreen> {
       _meshtasticService.dismissEmergency(_activeEmergency!.nodeId);
       setState(() => _activeEmergency = null);
     }
+  }
+
+  // ============ Auto-hide controls ============
+
+  /// Resetta il timer per nascondere i controlli
+  void _resetHideTimer() {
+    _hideControlsTimer?.cancel();
+
+    // Mostra i controlli
+    if (!_controlsVisible) {
+      setState(() => _controlsVisible = true);
+    }
+
+    // Avvia nuovo timer
+    _hideControlsTimer = Timer(_hideDelay, () {
+      // Non nascondere se ci sono messaggi non letti o emergenze attive
+      if (_shouldKeepControlsVisible()) return;
+
+      if (mounted) {
+        setState(() => _controlsVisible = false);
+      }
+    });
+  }
+
+  /// Verifica se i controlli devono rimanere visibili
+  bool _shouldKeepControlsVisible() {
+    // Mantieni visibili se ci sono messaggi non letti
+    if (_unreadChatCount > 0) return true;
+
+    // Mantieni visibili se c'è un'emergenza attiva
+    if (_activeEmergency != null && _activeEmergency!.isActive) return true;
+
+    // Mantieni visibili se la chat è aperta
+    if (_isChatOpen) return true;
+
+    return false;
+  }
+
+  /// Chiamato quando l'utente interagisce con lo schermo
+  void _onUserInteraction() {
+    _resetHideTimer();
   }
 }
 

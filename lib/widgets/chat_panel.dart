@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:intl/intl.dart';
 import '../models/chat_message.dart';
 import '../services/meshtastic_service.dart';
+import 'orientation_aware_icon.dart';
 
 class ChatPanel extends StatefulWidget {
   final MeshtasticService meshtasticService;
@@ -597,12 +598,14 @@ class _ChatToggleButtonState extends State<ChatToggleButton>
           child: Stack(
             children: [
               Center(
-                child: Icon(
-                  widget.isOpen ? Icons.chat : Icons.chat_bubble_outline,
-                  color: widget.isConnected
-                      ? (widget.isOpen ? Colors.white : Colors.green)
-                      : Colors.grey.shade400,
-                  size: 28,
+                child: OrientationAwareIcon(
+                  child: Icon(
+                    widget.isOpen ? Icons.chat : Icons.chat_bubble_outline,
+                    color: widget.isConnected
+                        ? (widget.isOpen ? Colors.white : Colors.green)
+                        : Colors.grey.shade400,
+                    size: 28,
+                  ),
                 ),
               ),
               // Notification badge

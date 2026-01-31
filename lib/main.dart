@@ -9,10 +9,12 @@ void main() async {
   // Modalità immersiva - nasconde barre di sistema
   SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
 
-  // Forza orientamento portrait
+  // Permetti tutti gli orientamenti
   SystemChrome.setPreferredOrientations([
     DeviceOrientation.portraitUp,
     DeviceOrientation.portraitDown,
+    DeviceOrientation.landscapeLeft,
+    DeviceOrientation.landscapeRight,
   ]);
 
   // Inizializza FMTC per cache tiles offline

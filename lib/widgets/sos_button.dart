@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/emergency_alert.dart';
+import 'orientation_aware_icon.dart';
 
 /// Pulsante SOS per inviare messaggi di emergenza e visualizzare emergenze in arrivo
 class SosButton extends StatefulWidget {
@@ -28,8 +29,6 @@ class SosButton extends StatefulWidget {
 
 class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
   bool _isSending = false;
-  late AnimationController _pulseController;
-  late Animation<double> _pulseAnimation;
   late AnimationController _emergencyBlinkController;
   late Animation<double> _emergencyBlinkAnimation;
   late Animation<Color?> _emergencyColorAnimation;
@@ -37,16 +36,6 @@ class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
   @override
   void initState() {
     super.initState();
-
-    // Pulse animation for connected state
-    _pulseController = AnimationController(
-      duration: const Duration(milliseconds: 1000),
-      vsync: this,
-    )..repeat(reverse: true);
-
-    _pulseAnimation = Tween<double>(begin: 1.0, end: 1.1).animate(
-      CurvedAnimation(parent: _pulseController, curve: Curves.easeInOut),
-    );
 
     // Emergency blink animation (faster, more urgent)
     _emergencyBlinkController = AnimationController(
@@ -83,7 +72,6 @@ class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
 
   @override
   void dispose() {
-    _pulseController.dispose();
     _emergencyBlinkController.dispose();
     super.dispose();
   }
@@ -328,11 +316,10 @@ class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
     final hasIncomingEmergency = widget.incomingEmergency?.isActive == true;
 
     return AnimatedBuilder(
-      animation: hasIncomingEmergency ? _emergencyBlinkAnimation : _pulseAnimation,
+      animation: _emergencyBlinkAnimation,
       builder: (context, child) {
-        final scale = hasIncomingEmergency
-            ? _emergencyBlinkAnimation.value
-            : (widget.isConnected ? _pulseAnimation.value : 1.0);
+        // Only animate scale when there's an incoming emergency
+        final scale = hasIncomingEmergency ? _emergencyBlinkAnimation.value : 1.0;
 
         return Transform.scale(
           scale: scale,
@@ -403,50 +390,54 @@ class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
     }
 
     if (hasIncomingEmergency) {
-      return Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          const Icon(
-            Icons.warning_amber,
-            color: Colors.white,
-            size: 26,
-          ),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-            decoration: BoxDecoration(
+      return OrientationAwareIcon(
+        child: Column(
+          mainAxisAlignment: MainAxisAlignment.center,
+          children: [
+            const Icon(
+              Icons.warning_amber,
               color: Colors.white,
-              borderRadius: BorderRadius.circular(4),
+              size: 26,
             ),
-            child: Text(
-              'SOS',
-              style: TextStyle(
-                color: Colors.red.shade900,
-                fontSize: 9,
-                fontWeight: FontWeight.bold,
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(4),
+              ),
+              child: Text(
+                'SOS',
+                style: TextStyle(
+                  color: Colors.red.shade900,
+                  fontSize: 9,
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-        ],
+          ],
+        ),
       );
     }
 
-    return const Column(
-      mainAxisAlignment: MainAxisAlignment.center,
-      children: [
-        Icon(
-          Icons.sos,
-          color: Colors.white,
-          size: 28,
-        ),
-        Text(
-          'SOS',
-          style: TextStyle(
+    return const OrientationAwareIcon(
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(
+            Icons.sos,
             color: Colors.white,
-            fontSize: 10,
-            fontWeight: FontWeight.bold,
+            size: 28,
           ),
-        ),
-      ],
+          Text(
+            'SOS',
+            style: TextStyle(
+              color: Colors.white,
+              fontSize: 10,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
