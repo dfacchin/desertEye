@@ -26,9 +26,16 @@ class NodeInfoPanel extends StatelessWidget {
     VoidCallback? onTogglePath,
     bool isPathVisible = false,
   }) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
     showModalBottomSheet(
       context: context,
       backgroundColor: Colors.transparent,
+      isScrollControlled: true,
+      constraints: isLandscape
+          ? BoxConstraints(
+              maxHeight: MediaQuery.of(context).size.height * 0.85,
+            )
+          : null,
       builder: (context) => NodeInfoPanel(
         node: node,
         userPosition: userPosition,
@@ -42,12 +49,12 @@ class NodeInfoPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenHeight = MediaQuery.of(context).size.height;
 
     return Container(
       constraints: BoxConstraints(
-        maxHeight: isLandscape
-            ? MediaQuery.of(context).size.height * 0.9
-            : MediaQuery.of(context).size.height * 0.6,
+        minHeight: isLandscape ? screenHeight * 0.7 : 0,
+        maxHeight: isLandscape ? screenHeight * 0.85 : screenHeight * 0.6,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
