@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 import 'package:screen_brightness/screen_brightness.dart';
-import 'orientation_aware_icon.dart';
 
 /// Barra laterale per il controllo della luminosità dello schermo
 class BrightnessControl extends StatefulWidget {
@@ -32,7 +31,8 @@ class _BrightnessControlState extends State<BrightnessControl> {
     try {
       final brightness = await ScreenBrightness().current;
       if (mounted) {
-        setState(() => _brightness = brightness);
+        // Clamp tra min (0.05) e max (1.0) dello slider
+        setState(() => _brightness = brightness.clamp(0.05, 1.0));
       }
     } catch (_) {
       // Ignore errors, use default
@@ -102,21 +102,24 @@ class _BrightnessControlState extends State<BrightnessControl> {
             width: 2,
           ),
         ),
-        child: OrientationAwareIcon(
-          child: Icon(
-            _isAutoMode ? Icons.brightness_auto : Icons.brightness_medium,
-            color: _isAutoMode ? Colors.blue : Colors.amber,
-            size: 22,
-          ),
+        child: Icon(
+          _isAutoMode ? Icons.brightness_auto : Icons.brightness_medium,
+          color: _isAutoMode ? Colors.blue : Colors.amber,
+          size: 22,
         ),
       ),
     );
   }
 
   Widget _buildExpandedControl() {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+    final screenHeight = MediaQuery.of(context).size.height;
+    // In landscape usa più spazio verticale disponibile
+    final sliderHeight = isLandscape ? (screenHeight * 0.5).clamp(100.0, 250.0) : 150.0;
+
     return Container(
       width: 50,
-      padding: const EdgeInsets.symmetric(vertical: 12, horizontal: 8),
+      padding: const EdgeInsets.symmetric(vertical: 8, horizontal: 8),
       decoration: BoxDecoration(
         color: Colors.black.withAlpha(180),
         borderRadius: BorderRadius.circular(25),
@@ -138,20 +141,20 @@ class _BrightnessControlState extends State<BrightnessControl> {
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // Brightness icon (high)
           Icon(
             Icons.brightness_high,
             color: Colors.amber.shade300,
-            size: 20,
+            size: isLandscape ? 16 : 20,
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // Vertical slider
           SizedBox(
-            height: 150,
+            height: sliderHeight,
             child: RotatedBox(
               quarterTurns: 3,
               child: SliderTheme(
@@ -165,7 +168,7 @@ class _BrightnessControlState extends State<BrightnessControl> {
                   overlayColor: Colors.amber.withAlpha(50),
                 ),
                 child: Slider(
-                  value: _brightness,
+                  value: _brightness.clamp(0.05, 1.0),
                   min: 0.05,
                   max: 1.0,
                   onChanged: _setBrightness,
@@ -174,22 +177,22 @@ class _BrightnessControlState extends State<BrightnessControl> {
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // Brightness icon (low)
           Icon(
             Icons.brightness_low,
             color: Colors.grey.shade500,
-            size: 20,
+            size: isLandscape ? 16 : 20,
           ),
 
-          const SizedBox(height: 12),
+          const SizedBox(height: 8),
 
           // Auto mode button
           GestureDetector(
             onTap: _setAutoMode,
             child: Container(
-              padding: const EdgeInsets.all(6),
+              padding: const EdgeInsets.all(4),
               decoration: BoxDecoration(
                 color: _isAutoMode
                     ? Colors.blue.withAlpha(100)
@@ -200,28 +203,15 @@ class _BrightnessControlState extends State<BrightnessControl> {
                   width: 1.5,
                 ),
               ),
-              child: Column(
-                children: [
-                  Icon(
-                    Icons.brightness_auto,
-                    color: _isAutoMode ? Colors.blue : Colors.grey,
-                    size: 18,
-                  ),
-                  const SizedBox(height: 2),
-                  Text(
-                    'AUTO',
-                    style: TextStyle(
-                      color: _isAutoMode ? Colors.blue : Colors.grey,
-                      fontSize: 8,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                ],
+              child: Icon(
+                Icons.brightness_auto,
+                color: _isAutoMode ? Colors.blue : Colors.grey,
+                size: 18,
               ),
             ),
           ),
 
-          const SizedBox(height: 8),
+          const SizedBox(height: 4),
 
           // Current brightness percentage
           Text(

@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:latlong2/latlong.dart';
 import '../models/emergency_alert.dart';
-import 'orientation_aware_icon.dart';
 
 /// Pulsante SOS per inviare messaggi di emergenza e visualizzare emergenze in arrivo
 class SosButton extends StatefulWidget {
@@ -122,77 +121,79 @@ class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
             ),
           ],
         ),
-        content: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.red.withAlpha(30),
-                borderRadius: BorderRadius.circular(8),
-                border: Border.all(color: Colors.red.withAlpha(100)),
-              ),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: [
-                      const Icon(Icons.person, color: Colors.white70, size: 16),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: Text(
-                          'Da: ${alert.nodeName}',
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontWeight: FontWeight.bold,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 8),
-                  Row(
-                    children: [
-                      const Icon(Icons.access_time, color: Colors.white70, size: 16),
-                      const SizedBox(width: 8),
-                      Text(
-                        'Ora: ${alert.timestamp.hour.toString().padLeft(2, '0')}:${alert.timestamp.minute.toString().padLeft(2, '0')}',
-                        style: const TextStyle(color: Colors.white70),
-                      ),
-                    ],
-                  ),
-                  if (alert.position != null) ...[
-                    const SizedBox(height: 8),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.red.withAlpha(30),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: Colors.red.withAlpha(100)),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
                     Row(
                       children: [
-                        const Icon(Icons.location_on, color: Colors.green, size: 16),
+                        const Icon(Icons.person, color: Colors.white70, size: 16),
                         const SizedBox(width: 8),
                         Expanded(
                           child: Text(
-                            'Posizione disponibile',
-                            style: TextStyle(color: Colors.green.shade300),
+                            'Da: ${alert.nodeName}',
+                            style: const TextStyle(
+                              color: Colors.white,
+                              fontWeight: FontWeight.bold,
+                            ),
                           ),
                         ),
                       ],
                     ),
+                    const SizedBox(height: 8),
+                    Row(
+                      children: [
+                        const Icon(Icons.access_time, color: Colors.white70, size: 16),
+                        const SizedBox(width: 8),
+                        Text(
+                          'Ora: ${alert.timestamp.hour.toString().padLeft(2, '0')}:${alert.timestamp.minute.toString().padLeft(2, '0')}',
+                          style: const TextStyle(color: Colors.white70),
+                        ),
+                      ],
+                    ),
+                    if (alert.position != null) ...[
+                      const SizedBox(height: 8),
+                      Row(
+                        children: [
+                          const Icon(Icons.location_on, color: Colors.green, size: 16),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              'Posizione disponibile',
+                              style: TextStyle(color: Colors.green.shade300),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
                   ],
-                ],
+                ),
               ),
-            ),
-            const SizedBox(height: 12),
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(8),
+              const SizedBox(height: 12),
+              Container(
+                padding: const EdgeInsets.all(12),
+                decoration: BoxDecoration(
+                  color: Colors.black26,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Text(
+                  alert.message,
+                  style: const TextStyle(color: Colors.white, fontSize: 13),
+                ),
               ),
-              child: Text(
-                alert.message,
-                style: const TextStyle(color: Colors.white, fontSize: 13),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
         actions: [
           TextButton(
@@ -390,54 +391,50 @@ class _SosButtonState extends State<SosButton> with TickerProviderStateMixin {
     }
 
     if (hasIncomingEmergency) {
-      return OrientationAwareIcon(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            const Icon(
-              Icons.warning_amber,
-              color: Colors.white,
-              size: 26,
-            ),
-            Container(
-              padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
-              decoration: BoxDecoration(
-                color: Colors.white,
-                borderRadius: BorderRadius.circular(4),
-              ),
-              child: Text(
-                'SOS',
-                style: TextStyle(
-                  color: Colors.red.shade900,
-                  fontSize: 9,
-                  fontWeight: FontWeight.bold,
-                ),
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-
-    return const OrientationAwareIcon(
-      child: Column(
+      return Column(
         mainAxisAlignment: MainAxisAlignment.center,
         children: [
-          Icon(
-            Icons.sos,
+          const Icon(
+            Icons.warning_amber,
             color: Colors.white,
-            size: 28,
+            size: 26,
           ),
-          Text(
-            'SOS',
-            style: TextStyle(
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 1),
+            decoration: BoxDecoration(
               color: Colors.white,
-              fontSize: 10,
-              fontWeight: FontWeight.bold,
+              borderRadius: BorderRadius.circular(4),
+            ),
+            child: Text(
+              'SOS',
+              style: TextStyle(
+                color: Colors.red.shade900,
+                fontSize: 9,
+                fontWeight: FontWeight.bold,
+              ),
             ),
           ),
         ],
-      ),
+      );
+    }
+
+    return const Column(
+      mainAxisAlignment: MainAxisAlignment.center,
+      children: [
+        Icon(
+          Icons.sos,
+          color: Colors.white,
+          size: 28,
+        ),
+        Text(
+          'SOS',
+          style: TextStyle(
+            color: Colors.white,
+            fontSize: 10,
+            fontWeight: FontWeight.bold,
+          ),
+        ),
+      ],
     );
   }
 }

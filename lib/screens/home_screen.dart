@@ -74,9 +74,6 @@ class _HomeScreenState extends State<HomeScreen> {
   Timer? _hideControlsTimer;
   static const Duration _hideDelay = Duration(seconds: 30);
 
-  // Orientation state
-  bool _isLandscapeLocked = false;
-
   StreamSubscription<bool>? _connectivitySubscription;
   StreamSubscription<LocationData>? _locationSubscription;
   StreamSubscription<double>? _compassSubscription;
@@ -273,21 +270,18 @@ class _HomeScreenState extends State<HomeScreen> {
   }
 
   void _toggleOrientation() {
-    setState(() {
-      _isLandscapeLocked = !_isLandscapeLocked;
-    });
+    // Controlla l'orientamento attuale effettivo
+    final isCurrentlyLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
 
-    if (_isLandscapeLocked) {
-      // Forza landscape
-      SystemChrome.setPreferredOrientations([
-        DeviceOrientation.landscapeLeft,
-        DeviceOrientation.landscapeRight,
-      ]);
-    } else {
-      // Permetti tutti gli orientamenti
+    if (isCurrentlyLandscape) {
+      // Siamo in landscape → forza portrait
       SystemChrome.setPreferredOrientations([
         DeviceOrientation.portraitUp,
         DeviceOrientation.portraitDown,
+      ]);
+    } else {
+      // Siamo in portrait → forza landscape
+      SystemChrome.setPreferredOrientations([
         DeviceOrientation.landscapeLeft,
         DeviceOrientation.landscapeRight,
       ]);
@@ -639,13 +633,15 @@ class _HomeScreenState extends State<HomeScreen> {
             if (!_isLoading)
               Positioned(
                 right: 16,
-                bottom: 32,
+                top: MediaQuery.of(context).orientation == Orientation.landscape ? 0 : null,
+                bottom: MediaQuery.of(context).orientation == Orientation.landscape ? 0 : 32,
                 child: AnimatedOpacity(
                   opacity: showControls ? 1.0 : 0.0,
                   duration: const Duration(milliseconds: 300),
                   child: IgnorePointer(
                     ignoring: !showControls,
-                    child: MapControls(
+                    child: Center(
+                      child: MapControls(
                       onRecenter: _recenterMap,
                       onLoadGpx: _loadGpxTrack,
                       onDownloadMap: _downloadMapRegion,
@@ -659,8 +655,9 @@ class _HomeScreenState extends State<HomeScreen> {
                       trackingMode: _trackingMode,
                       isMeshtasticConnected: _isMeshtasticConnected,
                       meshtasticNodeCount: _meshtasticNodes.length,
-                      isLandscape: _isLandscapeLocked,
+                      isLandscape: MediaQuery.of(context).orientation == Orientation.landscape,
                     ),
+                  ),
                   ),
                 ),
               ),
@@ -707,8 +704,10 @@ class _HomeScreenState extends State<HomeScreen> {
 
             // Brightness control (auto-hide)
             Positioned(
-              right: 8,
-              top: MediaQuery.of(context).size.height * 0.25,
+              right: MediaQuery.of(context).orientation == Orientation.landscape ? 80 : 8,
+              top: MediaQuery.of(context).orientation == Orientation.landscape
+                  ? 8
+                  : MediaQuery.of(context).size.height * 0.25,
               child: BrightnessControl(
                 isVisible: showControls,
                 onInteraction: _onUserInteraction,
@@ -719,8 +718,8 @@ class _HomeScreenState extends State<HomeScreen> {
             if (_isChatOpen && _isMeshtasticConnected)
               Positioned(
                 right: 0,
-                top: 60,
-                bottom: 170,
+                top: MediaQuery.of(context).orientation == Orientation.landscape ? 8 : 60,
+                bottom: MediaQuery.of(context).orientation == Orientation.landscape ? 8 : 170,
                 child: ChatPanel(
                   meshtasticService: _meshtasticService,
                   onClose: _toggleChat,
