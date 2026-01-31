@@ -1,7 +1,28 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+import 'package:flutter_map_tile_caching/flutter_map_tile_caching.dart';
 import 'screens/home_screen.dart';
 
-void main() {
+void main() async {
+  WidgetsFlutterBinding.ensureInitialized();
+
+  // Modalità immersiva - nasconde barre di sistema
+  SystemChrome.setEnabledSystemUIMode(SystemUiMode.immersiveSticky);
+
+  // Forza orientamento portrait
+  SystemChrome.setPreferredOrientations([
+    DeviceOrientation.portraitUp,
+    DeviceOrientation.portraitDown,
+  ]);
+
+  // Inizializza FMTC per cache tiles offline
+  await FMTCObjectBoxBackend().initialise();
+
+  // Crea store per i tiles se non esiste
+  const storeName = 'desertEyeMapStore';
+  final store = FMTCStore(storeName);
+  await store.manage.create();
+
   runApp(const DesertEyeApp());
 }
 

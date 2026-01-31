@@ -34,7 +34,7 @@ dependencies:
   cupertino_icons: ^1.0.8
 
   # Map display - OpenStreetMap via flutter_map
-  flutter_map: ^8.1.0
+  flutter_map: ^8.1.1
   latlong2: ^0.9.1
 
   # GPS positioning
@@ -45,6 +45,26 @@ dependencies:
 
   # File picker for loading GPX files
   file_picker: ^8.1.7
+
+  # Offline tile caching
+  flutter_map_tile_caching: ^10.1.1
+
+  # Connectivity checking
+  connectivity_plus: ^6.0.0
+
+  # Compass for device orientation
+  flutter_compass: ^0.8.0
+
+  # Meshtastic BLE communication (official Flutter library)
+  meshtastic_flutter: ^0.0.3
+  flutter_blue_plus: ^1.36.0
+  permission_handler: ^12.0.1
+
+  # Date/time formatting
+  intl: ^0.19.0
+
+  # Local storage for device persistence
+  shared_preferences: ^2.2.2
 
 dev_dependencies:
   flutter_test:

@@ -8,11 +8,16 @@ class GpxService {
   /// Pick and parse a GPX file
   Future<GpxTrack?> loadGpxFile() async {
     FilePickerResult? result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['gpx'],
+      type: FileType.any,
     );
 
     if (result == null || result.files.single.path == null) {
+      return null;
+    }
+
+    // Verify file extension manually
+    final path = result.files.single.path!;
+    if (!path.toLowerCase().endsWith('.gpx')) {
       return null;
     }
 
