@@ -263,84 +263,74 @@ class NodeInfoPanel extends StatelessWidget {
   }
 
   Widget _buildLandscapeInfoGrid() {
-    final items = <Widget>[
-      _buildCompactInfoTile(
-        Icons.battery_charging_full,
-        'Batteria',
-        node.batteryString,
-        _getBatteryColor(node.batteryLevel),
-      ),
-      _buildCompactInfoTile(
-        Icons.signal_cellular_alt,
-        'SNR',
-        '${node.snr.toStringAsFixed(1)} dB',
-        _getSignalColor(node.snr),
-      ),
-      _buildCompactInfoTile(
-        Icons.access_time,
-        'Agg.',
-        _formatTimeSince(node.timeSinceUpdate),
-        Colors.grey,
-      ),
-      if (userPosition != null)
-        _buildCompactInfoTile(
-          Icons.straighten,
-          'Dist.',
-          _calculateDistance(userPosition!, node.position),
-          Colors.blue,
+    return Row(
+      children: [
+        Expanded(
+          child: _buildMiniInfoTile(
+            Icons.battery_charging_full,
+            node.batteryString,
+            _getBatteryColor(node.batteryLevel),
+          ),
         ),
-      _buildCompactInfoTile(
-        Icons.explore,
-        'Heading',
-        '${node.heading.toStringAsFixed(0)}°',
-        Colors.orange,
-      ),
-    ];
-
-    return Wrap(
-      spacing: 12,
-      runSpacing: 8,
-      children: items,
+        const SizedBox(width: 4),
+        Expanded(
+          child: _buildMiniInfoTile(
+            Icons.signal_cellular_alt,
+            '${node.snr.toStringAsFixed(1)}',
+            _getSignalColor(node.snr),
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: _buildMiniInfoTile(
+            Icons.access_time,
+            _formatTimeSince(node.timeSinceUpdate),
+            Colors.grey,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: _buildMiniInfoTile(
+            Icons.straighten,
+            userPosition != null
+                ? _calculateDistance(userPosition!, node.position)
+                : '-',
+            Colors.blue,
+          ),
+        ),
+        const SizedBox(width: 4),
+        Expanded(
+          child: _buildMiniInfoTile(
+            Icons.explore,
+            '${node.heading.toStringAsFixed(0)}°',
+            Colors.orange,
+          ),
+        ),
+      ],
     );
   }
 
-  Widget _buildCompactInfoTile(
-    IconData icon,
-    String label,
-    String value,
-    Color color,
-  ) {
+  Widget _buildMiniInfoTile(IconData icon, String value, Color color) {
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(vertical: 4),
       decoration: BoxDecoration(
         color: color.withAlpha(20),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withAlpha(50)),
+        borderRadius: BorderRadius.circular(6),
       ),
-      child: Row(
+      child: Column(
         mainAxisSize: MainAxisSize.min,
         children: [
-          Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
-          Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                label,
-                style: TextStyle(
-                  fontSize: 10,
-                  color: Colors.grey.shade600,
-                ),
-              ),
-              Text(
-                value,
-                style: const TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+          Icon(icon, size: 14, color: color),
+          const SizedBox(height: 2),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 11,
+              fontWeight: FontWeight.w600,
+              color: color,
+            ),
+            textAlign: TextAlign.center,
+            overflow: TextOverflow.ellipsis,
           ),
         ],
       ),
