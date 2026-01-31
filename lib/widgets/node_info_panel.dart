@@ -33,7 +33,8 @@ class NodeInfoPanel extends StatelessWidget {
       isScrollControlled: true,
       constraints: isLandscape
           ? BoxConstraints(
-              maxHeight: MediaQuery.of(context).size.height * 0.85,
+              maxWidth: 450,
+              maxHeight: MediaQuery.of(context).size.height * 0.95,
             )
           : null,
       builder: (context) => NodeInfoPanel(
@@ -53,8 +54,7 @@ class NodeInfoPanel extends StatelessWidget {
 
     return Container(
       constraints: BoxConstraints(
-        minHeight: isLandscape ? screenHeight * 0.7 : 0,
-        maxHeight: isLandscape ? screenHeight * 0.85 : screenHeight * 0.6,
+        maxHeight: isLandscape ? screenHeight * 0.95 : screenHeight * 0.6,
       ),
       decoration: const BoxDecoration(
         color: Colors.white,
