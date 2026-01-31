@@ -129,49 +129,12 @@ class NodeInfoPanel extends StatelessWidget {
 
           const Divider(height: 24),
 
-          // Info grid
+          // Info grid - 3 colonne in landscape, lista verticale in portrait
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
-            child: Column(
-              children: [
-                _buildInfoRow(
-                  Icons.battery_charging_full,
-                  'Batteria',
-                  node.batteryString,
-                  _getBatteryColor(node.batteryLevel),
-                ),
-                const SizedBox(height: 12),
-                _buildInfoRow(
-                  Icons.signal_cellular_alt,
-                  'Segnale (SNR)',
-                  '${node.snr.toStringAsFixed(1)} dB',
-                  _getSignalColor(node.snr),
-                ),
-                const SizedBox(height: 12),
-                _buildInfoRow(
-                  Icons.access_time,
-                  'Ultimo aggiornamento',
-                  _formatTimeSince(node.timeSinceUpdate),
-                  Colors.grey,
-                ),
-                if (userPosition != null) ...[
-                  const SizedBox(height: 12),
-                  _buildInfoRow(
-                    Icons.straighten,
-                    'Distanza',
-                    _calculateDistance(userPosition!, node.position),
-                    Colors.blue,
-                  ),
-                ],
-                const SizedBox(height: 12),
-                _buildInfoRow(
-                  Icons.explore,
-                  'Heading',
-                  '${node.heading.toStringAsFixed(0)}°',
-                  Colors.orange,
-                ),
-              ],
-            ),
+            child: isLandscape
+                ? _buildLandscapeInfoGrid()
+                : _buildPortraitInfoList(),
           ),
 
           const Divider(height: 24),
@@ -250,6 +213,134 @@ class NodeInfoPanel extends StatelessWidget {
                 ],
               ),
             ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPortraitInfoList() {
+    return Column(
+      children: [
+        _buildInfoRow(
+          Icons.battery_charging_full,
+          'Batteria',
+          node.batteryString,
+          _getBatteryColor(node.batteryLevel),
+        ),
+        const SizedBox(height: 12),
+        _buildInfoRow(
+          Icons.signal_cellular_alt,
+          'Segnale (SNR)',
+          '${node.snr.toStringAsFixed(1)} dB',
+          _getSignalColor(node.snr),
+        ),
+        const SizedBox(height: 12),
+        _buildInfoRow(
+          Icons.access_time,
+          'Ultimo agg.',
+          _formatTimeSince(node.timeSinceUpdate),
+          Colors.grey,
+        ),
+        if (userPosition != null) ...[
+          const SizedBox(height: 12),
+          _buildInfoRow(
+            Icons.straighten,
+            'Distanza',
+            _calculateDistance(userPosition!, node.position),
+            Colors.blue,
+          ),
+        ],
+        const SizedBox(height: 12),
+        _buildInfoRow(
+          Icons.explore,
+          'Heading',
+          '${node.heading.toStringAsFixed(0)}°',
+          Colors.orange,
+        ),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeInfoGrid() {
+    final items = <Widget>[
+      _buildCompactInfoTile(
+        Icons.battery_charging_full,
+        'Batteria',
+        node.batteryString,
+        _getBatteryColor(node.batteryLevel),
+      ),
+      _buildCompactInfoTile(
+        Icons.signal_cellular_alt,
+        'SNR',
+        '${node.snr.toStringAsFixed(1)} dB',
+        _getSignalColor(node.snr),
+      ),
+      _buildCompactInfoTile(
+        Icons.access_time,
+        'Agg.',
+        _formatTimeSince(node.timeSinceUpdate),
+        Colors.grey,
+      ),
+      if (userPosition != null)
+        _buildCompactInfoTile(
+          Icons.straighten,
+          'Dist.',
+          _calculateDistance(userPosition!, node.position),
+          Colors.blue,
+        ),
+      _buildCompactInfoTile(
+        Icons.explore,
+        'Heading',
+        '${node.heading.toStringAsFixed(0)}°',
+        Colors.orange,
+      ),
+    ];
+
+    return Wrap(
+      spacing: 12,
+      runSpacing: 8,
+      children: items,
+    );
+  }
+
+  Widget _buildCompactInfoTile(
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) {
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withAlpha(20),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withAlpha(50)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 16, color: color),
+          const SizedBox(width: 6),
+          Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Text(
+                label,
+                style: TextStyle(
+                  fontSize: 10,
+                  color: Colors.grey.shade600,
+                ),
+              ),
+              Text(
+                value,
+                style: const TextStyle(
+                  fontSize: 13,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
           ),
         ],
       ),
