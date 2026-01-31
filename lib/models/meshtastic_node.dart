@@ -7,7 +7,7 @@ class MeshtasticNode {
   final LatLng position;
   final double heading; // Direzione in gradi (0-360)
   final DateTime lastUpdate;
-  final List<LatLng> trailPoints; // Ultimi N punti (max 10)
+  final List<LatLng> trailPoints; // Storico posizioni (max 1000)
   final int batteryLevel; // Percentuale 0-100
   final double snr; // Signal-to-Noise Ratio
   final int rssi; // Received Signal Strength Indicator
@@ -49,13 +49,16 @@ class MeshtasticNode {
     );
   }
 
-  /// Aggiunge punto al trail mantenendo max 10 punti
+  /// Numero massimo di punti nel trail
+  static const int maxTrailPoints = 1000;
+
+  /// Aggiunge punto al trail mantenendo max 1000 punti
   MeshtasticNode addTrailPoint(LatLng point) {
     final newTrail = List<LatLng>.from(trailPoints);
     newTrail.add(point);
 
-    // Mantieni solo ultimi 10 punti
-    while (newTrail.length > 10) {
+    // Mantieni solo ultimi 1000 punti
+    while (newTrail.length > maxTrailPoints) {
       newTrail.removeAt(0);
     }
 

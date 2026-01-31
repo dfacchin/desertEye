@@ -6,12 +6,16 @@ class NodeInfoPanel extends StatelessWidget {
   final MeshtasticNode node;
   final LatLng? userPosition;
   final VoidCallback? onClose;
+  final VoidCallback? onTogglePath;
+  final bool isPathVisible;
 
   const NodeInfoPanel({
     super.key,
     required this.node,
     this.userPosition,
     this.onClose,
+    this.onTogglePath,
+    this.isPathVisible = false,
   });
 
   /// Mostra il panel come bottom sheet
@@ -19,6 +23,8 @@ class NodeInfoPanel extends StatelessWidget {
     BuildContext context, {
     required MeshtasticNode node,
     LatLng? userPosition,
+    VoidCallback? onTogglePath,
+    bool isPathVisible = false,
   }) {
     showModalBottomSheet(
       context: context,
@@ -27,13 +33,22 @@ class NodeInfoPanel extends StatelessWidget {
         node: node,
         userPosition: userPosition,
         onClose: () => Navigator.of(context).pop(),
+        onTogglePath: onTogglePath,
+        isPathVisible: isPathVisible,
       ),
     );
   }
 
   @override
   Widget build(BuildContext context) {
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
     return Container(
+      constraints: BoxConstraints(
+        maxHeight: isLandscape
+            ? MediaQuery.of(context).size.height * 0.9
+            : MediaQuery.of(context).size.height * 0.6,
+      ),
       decoration: const BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
@@ -52,6 +67,12 @@ class NodeInfoPanel extends StatelessWidget {
             ),
           ),
 
+          // Scrollable content
+          Flexible(
+            child: SingleChildScrollView(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
           // Header con nome e icona
           Padding(
             padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -184,7 +205,45 @@ class NodeInfoPanel extends StatelessWidget {
             ),
           ),
 
+          // Show Path button
+          if (node.trailPoints.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20),
+              child: SizedBox(
+                width: double.infinity,
+                child: ElevatedButton.icon(
+                  onPressed: () {
+                    onTogglePath?.call();
+                    onClose?.call();
+                  },
+                  icon: Icon(
+                    isPathVisible ? Icons.visibility_off : Icons.route,
+                  ),
+                  label: Text(
+                    isPathVisible
+                        ? 'Nascondi percorso'
+                        : 'Mostra percorso (${node.trailPoints.length} punti)',
+                  ),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: isPathVisible
+                        ? Colors.grey.shade300
+                        : Colors.green,
+                    foregroundColor: isPathVisible
+                        ? Colors.black87
+                        : Colors.white,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ),
+          ],
+
           const SizedBox(height: 24),
+                ],
+              ),
+            ),
+          ),
         ],
       ),
     );

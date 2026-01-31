@@ -23,6 +23,7 @@ class MapView extends StatelessWidget {
   final List<MeshtasticNode> meshtasticNodes;
   final void Function(MeshtasticNode node)? onNodeTap;
   final Set<String> emergencyNodeIds;
+  final Set<String> visibleNodePaths;
 
   const MapView({
     super.key,
@@ -40,6 +41,7 @@ class MapView extends StatelessWidget {
     this.meshtasticNodes = const [],
     this.onNodeTap,
     this.emergencyNodeIds = const {},
+    this.visibleNodePaths = const {},
   });
 
   @override
@@ -88,10 +90,12 @@ class MapView extends StatelessWidget {
               .toList(),
         ),
 
-        // Meshtastic node trails (polylines verdi)
+        // Meshtastic node trails (solo per nodi con path visibile)
         PolylineLayer(
           polylines: meshtasticNodes
-              .where((node) => node.trailPoints.length > 1)
+              .where((node) =>
+                  node.trailPoints.length > 1 &&
+                  visibleNodePaths.contains(node.nodeId))
               .map((node) => Polyline(
                     points: node.trailPoints,
                     color: Colors.green.withValues(alpha: 0.7),

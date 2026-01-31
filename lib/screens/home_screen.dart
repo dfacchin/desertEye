@@ -58,6 +58,7 @@ class _HomeScreenState extends State<HomeScreen> {
   // Meshtastic state
   List<MeshtasticNode> _meshtasticNodes = [];
   bool _isMeshtasticConnected = false;
+  final Set<String> _visibleNodePaths = {};
 
   // Chat state
   bool _isChatOpen = false;
@@ -565,6 +566,16 @@ class _HomeScreenState extends State<HomeScreen> {
       context,
       node: node,
       userPosition: _userPosition,
+      isPathVisible: _visibleNodePaths.contains(node.nodeId),
+      onTogglePath: () {
+        setState(() {
+          if (_visibleNodePaths.contains(node.nodeId)) {
+            _visibleNodePaths.remove(node.nodeId);
+          } else {
+            _visibleNodePaths.add(node.nodeId);
+          }
+        });
+      },
     );
   }
 
@@ -621,6 +632,7 @@ class _HomeScreenState extends State<HomeScreen> {
                 emergencyNodeIds: _activeEmergency != null
                     ? {_activeEmergency!.nodeId}
                     : const {},
+                visibleNodePaths: _visibleNodePaths,
               ),
 
             // Indicatore offline (sempre visibile)
