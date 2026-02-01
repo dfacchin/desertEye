@@ -70,6 +70,9 @@ class _HomeScreenState extends State<HomeScreen> {
   // Auto-connect state
   String? _autoConnectMessage;
 
+  // Reconnect state
+  bool _isReconnecting = false;
+
   // Auto-hide UI controls
   bool _controlsVisible = true;
   Timer? _hideControlsTimer;
@@ -83,6 +86,7 @@ class _HomeScreenState extends State<HomeScreen> {
   StreamSubscription<ChatMessage>? _chatSubscription;
   StreamSubscription<EmergencyAlert>? _emergencySubscription;
   StreamSubscription<AutoConnectStatus>? _autoConnectSubscription;
+  StreamSubscription<ReconnectStatus>? _reconnectStatusSubscription;
 
   @override
   void initState() {
@@ -126,6 +130,12 @@ class _HomeScreenState extends State<HomeScreen> {
     _meshtasticConnectionSubscription =
         _meshtasticService.connectionStream.listen((connected) {
       setState(() => _isMeshtasticConnected = connected);
+    });
+
+    // Ascolta stato riconnessione automatica
+    _reconnectStatusSubscription =
+        _meshtasticService.reconnectStatusStream.listen((status) {
+      _handleReconnectStatus(status);
     });
 
     // Ascolta messaggi chat
@@ -236,6 +246,72 @@ class _HomeScreenState extends State<HomeScreen> {
     if (!mounted) return;
     setState(() => _autoConnectMessage = null);
     ScaffoldMessenger.of(context).hideCurrentSnackBar();
+  }
+
+  void _handleReconnectStatus(ReconnectStatus status) {
+    if (!mounted) return;
+
+    switch (status) {
+      case ReconnectStatus.idle:
+        setState(() => _isReconnecting = false);
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        break;
+      case ReconnectStatus.searching:
+        setState(() => _isReconnecting = true);
+        _showReconnectSnackBar('Ricerca dispositivo...', Colors.orange.shade700);
+        break;
+      case ReconnectStatus.connecting:
+        setState(() => _isReconnecting = true);
+        _showReconnectSnackBar('Connessione in corso...', Colors.blue.shade700);
+        break;
+      case ReconnectStatus.connected:
+        setState(() => _isReconnecting = false);
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          const SnackBar(
+            content: Text('Riconnesso'),
+            backgroundColor: Colors.green,
+            duration: Duration(seconds: 2),
+          ),
+        );
+        break;
+      case ReconnectStatus.failed:
+        // Keep _isReconnecting true since we'll retry
+        ScaffoldMessenger.of(context).hideCurrentSnackBar();
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: const Text('Riconnessione fallita. Riprovo tra 60s...'),
+            backgroundColor: Colors.orange.shade700,
+            duration: const Duration(seconds: 3),
+          ),
+        );
+        break;
+    }
+  }
+
+  void _showReconnectSnackBar(String message, Color backgroundColor) {
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).hideCurrentSnackBar();
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            const SizedBox(
+              width: 18,
+              height: 18,
+              child: CircularProgressIndicator(
+                strokeWidth: 2,
+                color: Colors.white,
+              ),
+            ),
+            const SizedBox(width: 12),
+            Text(message),
+          ],
+        ),
+        duration: const Duration(seconds: 30),
+        backgroundColor: backgroundColor,
+      ),
+    );
   }
 
   Future<void> _initializeLocation() async {
@@ -591,6 +667,7 @@ class _HomeScreenState extends State<HomeScreen> {
     _chatSubscription?.cancel();
     _emergencySubscription?.cancel();
     _autoConnectSubscription?.cancel();
+    _reconnectStatusSubscription?.cancel();
     _connectivityService.dispose();
     _locationService.dispose();
     _meshtasticService.dispose();
@@ -668,6 +745,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       isMeshtasticConnected: _isMeshtasticConnected,
                       meshtasticNodeCount: _meshtasticNodes.length,
                       isLandscape: MediaQuery.of(context).orientation == Orientation.landscape,
+                      isReconnecting: _isReconnecting,
                     ),
                   ),
                   ),

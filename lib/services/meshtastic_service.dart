@@ -11,6 +11,9 @@ import '../models/emergency_alert.dart';
 const String _lastDeviceIdKey = 'meshtastic_last_device_id';
 const String _lastDeviceNameKey = 'meshtastic_last_device_name';
 
+// Auto-reconnect interval
+const Duration _reconnectInterval = Duration(seconds: 60);
+
 /// Configurazione canale DesertEye
 /// URL: https://meshtastic.org/e/?add=true#CiESEG1lVmlQUDE2dmlyJ0haUVkaCURlc2VydEV5ZToCCCASGAgBEAIY-gEgCygFOANAA0gBUBtoAcAGAQ
 const String channelName = 'DesertEye';
@@ -28,6 +31,8 @@ class MeshtasticService {
       StreamController<ChatMessage>.broadcast();
   final StreamController<EmergencyAlert> _emergencyController =
       StreamController<EmergencyAlert>.broadcast();
+  final StreamController<ReconnectStatus> _reconnectStatusController =
+      StreamController<ReconnectStatus>.broadcast();
 
   final Map<String, MeshtasticNode> _nodes = {};
   final List<ChatMessage> _chatMessages = [];
@@ -40,15 +45,23 @@ class MeshtasticService {
   StreamSubscription<MeshPacketWrapper>? _packetSubscription;
   StreamSubscription<ConnectionStatus>? _connectionSubscription;
 
+  // Auto-reconnect state
+  Timer? _reconnectTimer;
+  bool _isReconnecting = false;
+  String? _lastConnectedDeviceId;
+  bool _wasConnectedBefore = false;
+
   // Public streams
   Stream<List<MeshtasticNode>> get nodeStream => _nodeController.stream;
   Stream<bool> get connectionStream => _connectionController.stream;
   Stream<ChatMessage> get chatStream => _chatController.stream;
   Stream<EmergencyAlert> get emergencyStream => _emergencyController.stream;
+  Stream<ReconnectStatus> get reconnectStatusStream => _reconnectStatusController.stream;
 
   // Public getters
   bool get isConnected => _client?.isConnected ?? false;
   bool get isInitialized => _initialized;
+  bool get isReconnecting => _isReconnecting;
   List<MeshtasticNode> get nodes => _nodes.values.toList();
   List<ChatMessage> get chatMessages => List.unmodifiable(_chatMessages);
   Map<String, EmergencyAlert> get activeEmergencies => Map.unmodifiable(_activeEmergencies);
@@ -116,12 +129,19 @@ class MeshtasticService {
       throw StateError('MeshtasticClient not initialized. Call initialize() first.');
     }
 
+    // Stop any ongoing reconnection attempts when manually connecting
+    _stopReconnectTimer();
+
     try {
       // ignore: avoid_print
       print('[Meshtastic] Connecting to ${device.platformName}...');
 
       await _client!.connectToDevice(device);
       _setupListeners();
+
+      // Track this device for auto-reconnect
+      _lastConnectedDeviceId = device.remoteId.toString();
+      _wasConnectedBefore = true;
 
       // Emit connected state immediately after successful connection
       _connectionController.add(true);
@@ -202,13 +222,133 @@ class MeshtasticService {
           // ignore: avoid_print
           print('[Meshtastic] Error: ${status.errorMessage ?? "unknown"}');
         }
+
+        // Handle disconnection - start auto-reconnect if we were previously connected
+        if (!connected && _wasConnectedBefore && _lastConnectedDeviceId != null) {
+          _startReconnectTimer();
+        }
       },
       onError: (e) {
         // ignore: avoid_print
         print('[Meshtastic] Connection stream error: $e');
         _connectionController.add(false);
+
+        // Start reconnect on error if we were previously connected
+        if (_wasConnectedBefore && _lastConnectedDeviceId != null) {
+          _startReconnectTimer();
+        }
       },
     );
+  }
+
+  // ============ Auto-Reconnect ============
+
+  /// Start the auto-reconnect timer (attempts every 60 seconds)
+  void _startReconnectTimer() {
+    // Don't start if already reconnecting or no device to reconnect to
+    if (_isReconnecting || _lastConnectedDeviceId == null) return;
+
+    _isReconnecting = true;
+    // ignore: avoid_print
+    print('[Meshtastic] Connection lost. Will attempt to reconnect every 60 seconds...');
+
+    // Attempt immediately first, then every 60 seconds
+    _attemptReconnect();
+
+    _reconnectTimer?.cancel();
+    _reconnectTimer = Timer.periodic(_reconnectInterval, (_) {
+      _attemptReconnect();
+    });
+  }
+
+  /// Stop the auto-reconnect timer
+  void _stopReconnectTimer() {
+    if (_reconnectTimer != null) {
+      _reconnectTimer!.cancel();
+      _reconnectTimer = null;
+      // ignore: avoid_print
+      print('[Meshtastic] Auto-reconnect stopped');
+    }
+    _isReconnecting = false;
+    _reconnectStatusController.add(ReconnectStatus.idle);
+  }
+
+  /// Attempt to reconnect to the last connected device
+  Future<void> _attemptReconnect() async {
+    if (!_isReconnecting || _lastConnectedDeviceId == null) return;
+
+    // Don't attempt if already connected
+    if (isConnected) {
+      _stopReconnectTimer();
+      return;
+    }
+
+    // ignore: avoid_print
+    print('[Meshtastic] Attempting to reconnect to $_lastConnectedDeviceId...');
+
+    // Emit searching status
+    _reconnectStatusController.add(ReconnectStatus.searching);
+
+    try {
+      if (!_initialized) {
+        await initialize();
+        await Future.delayed(const Duration(milliseconds: 500));
+      }
+
+      BluetoothDevice? foundDevice;
+
+      // Scan for the device with timeout
+      await for (final device in scanStream().timeout(
+        const Duration(seconds: 15),
+        onTimeout: (sink) => sink.close(),
+      )) {
+        if (device.remoteId.toString() == _lastConnectedDeviceId) {
+          foundDevice = device;
+          // ignore: avoid_print
+          print('[Meshtastic] Reconnect: Device found!');
+          break;
+        }
+      }
+
+      await Future.delayed(const Duration(milliseconds: 200));
+      await stopScan();
+
+      if (foundDevice == null) {
+        // ignore: avoid_print
+        print('[Meshtastic] Reconnect: Device not found, will retry in 60 seconds');
+        _reconnectStatusController.add(ReconnectStatus.failed);
+        return;
+      }
+
+      await Future.delayed(const Duration(milliseconds: 500));
+
+      // Emit connecting status
+      _reconnectStatusController.add(ReconnectStatus.connecting);
+
+      // Clear reconnecting flag before connecting
+      _isReconnecting = false;
+
+      await _client!.connectToDevice(foundDevice);
+      _setupListeners();
+
+      // Connection successful - stop reconnect timer
+      _stopReconnectTimer();
+      _connectionController.add(true);
+      _reconnectStatusController.add(ReconnectStatus.connected);
+
+      // ignore: avoid_print
+      print('[Meshtastic] Reconnected successfully!');
+
+      // Load existing nodes from client
+      _loadNodesFromClient();
+
+    } catch (e) {
+      // ignore: avoid_print
+      print('[Meshtastic] Reconnect attempt failed: $e');
+      _reconnectStatusController.add(ReconnectStatus.failed);
+      // Keep reconnecting flag true so timer continues
+      _isReconnecting = true;
+    }
   }
 
   /// Update or create a node from NodeInfoWrapper
@@ -424,7 +564,15 @@ class MeshtasticService {
   }
 
   /// Disconnect from the current device
-  Future<void> disconnect() async {
+  /// Set [clearReconnect] to true to stop auto-reconnect attempts (manual disconnect)
+  Future<void> disconnect({bool clearReconnect = true}) async {
+    // Stop reconnect timer if this is a manual disconnect
+    if (clearReconnect) {
+      _stopReconnectTimer();
+      _wasConnectedBefore = false;
+      _lastConnectedDeviceId = null;
+    }
+
     _nodeSubscription?.cancel();
     _nodeSubscription = null;
 
@@ -632,11 +780,13 @@ class MeshtasticService {
   }
 
   void dispose() {
+    _stopReconnectTimer();
     disconnect();
     _nodeController.close();
     _connectionController.close();
     _chatController.close();
     _emergencyController.close();
+    _reconnectStatusController.close();
   }
 }
 
@@ -645,6 +795,15 @@ enum AutoConnectStatus {
   noSavedDevice,
   searching,
   deviceNotFound,
+  connecting,
+  connected,
+  failed,
+}
+
+/// Status of reconnection attempt
+enum ReconnectStatus {
+  idle,
+  searching,
   connecting,
   connected,
   failed,
