@@ -69,6 +69,7 @@ class _HomeScreenState extends State<HomeScreen> {
 
   // Auto-connect state
   String? _autoConnectMessage;
+  bool _isAutoConnecting = false;
 
   // Reconnect state
   bool _isReconnecting = false;
@@ -181,36 +182,48 @@ class _HomeScreenState extends State<HomeScreen> {
         switch (status) {
           case AutoConnectStatus.noSavedDevice:
             // Nessun dispositivo salvato, non fare nulla
+            setState(() => _isAutoConnecting = false);
             break;
           case AutoConnectStatus.searching:
+            setState(() => _isAutoConnecting = true);
             _showAutoConnectSnackBar('Ricerca ultimo dispositivo...');
             break;
           case AutoConnectStatus.deviceNotFound:
+            setState(() => _isAutoConnecting = false);
             _hideAutoConnectSnackBar();
             // Non mostrare errore, l'utente può connettersi manualmente
             break;
           case AutoConnectStatus.connecting:
+            setState(() => _isAutoConnecting = true);
             _showAutoConnectSnackBar('Connessione in corso...');
             break;
           case AutoConnectStatus.connected:
-            _hideAutoConnectSnackBar();
-            if (mounted) {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                  content: Text('Connesso automaticamente'),
-                  backgroundColor: Colors.green,
-                  duration: Duration(seconds: 2),
-                ),
-              );
-            }
+            // Mostra "Configurazione..." per qualche secondo
+            _showAutoConnectSnackBar('Configurazione...');
+            // Dopo un breve ritardo per la configurazione, completa
+            Future.delayed(const Duration(seconds: 3), () {
+              if (mounted) {
+                setState(() => _isAutoConnecting = false);
+                _hideAutoConnectSnackBar();
+                ScaffoldMessenger.of(context).showSnackBar(
+                  const SnackBar(
+                    content: Text('Connesso automaticamente'),
+                    backgroundColor: Colors.green,
+                    duration: Duration(seconds: 2),
+                  ),
+                );
+              }
+            });
             break;
           case AutoConnectStatus.failed:
+            setState(() => _isAutoConnecting = false);
             _hideAutoConnectSnackBar();
             // Non mostrare errore, l'utente può connettersi manualmente
             break;
         }
       },
       onError: (e) {
+        setState(() => _isAutoConnecting = false);
         _hideAutoConnectSnackBar();
       },
     );
@@ -563,6 +576,20 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  void _showNodeListDialog() {
+    showDialog(
+      context: context,
+      builder: (context) => _NodeListDialog(
+        nodes: _meshtasticNodes,
+        userPosition: _userPosition,
+        onNodeSelected: (node) {
+          Navigator.of(context).pop();
+          _mapController.move(node.position, 16);
+        },
+      ),
+    );
+  }
+
   Future<void> _connectToMeshtastic(BluetoothDevice device) async {
     try {
       // Mostra indicatore di caricamento
@@ -738,6 +765,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       onToggleTracking: _toggleTracking,
                       onToggleMeshtastic: _toggleMeshtastic,
                       onToggleOrientation: _toggleOrientation,
+                      onShowNodeList: _showNodeListDialog,
                       hasLocation: _userPosition != null,
                       isOnline: _isOnline,
                       hasGpxTracks: _gpxTracks.isNotEmpty,
@@ -746,6 +774,7 @@ class _HomeScreenState extends State<HomeScreen> {
                       meshtasticNodeCount: _meshtasticNodes.length,
                       isLandscape: MediaQuery.of(context).orientation == Orientation.landscape,
                       isReconnecting: _isReconnecting,
+                      isAutoConnecting: _isAutoConnecting,
                     ),
                   ),
                   ),
@@ -1052,6 +1081,161 @@ class _MeshtasticScanDialogState extends State<_MeshtasticScanDialog> {
             onPressed: _startScan,
             child: const Text('Riprova'),
           ),
+      ],
+    );
+  }
+}
+
+/// Dialog per lista nodi Meshtastic
+class _NodeListDialog extends StatelessWidget {
+  final List<MeshtasticNode> nodes;
+  final LatLng? userPosition;
+  final void Function(MeshtasticNode node) onNodeSelected;
+
+  const _NodeListDialog({
+    required this.nodes,
+    required this.userPosition,
+    required this.onNodeSelected,
+  });
+
+  String _formatDistance(MeshtasticNode node) {
+    if (userPosition == null) return '';
+    final distance = const Distance().as(
+      LengthUnit.Meter,
+      userPosition!,
+      node.position,
+    );
+    if (distance < 1000) {
+      return '${distance.round()} m';
+    } else {
+      return '${(distance / 1000).toStringAsFixed(1)} km';
+    }
+  }
+
+  String _formatLastUpdate(MeshtasticNode node) {
+    final duration = node.timeSinceUpdate;
+    if (duration.inSeconds < 60) {
+      return '${duration.inSeconds}s fa';
+    } else if (duration.inMinutes < 60) {
+      return '${duration.inMinutes}m fa';
+    } else if (duration.inHours < 24) {
+      return '${duration.inHours}h fa';
+    } else {
+      return '${duration.inDays}g fa';
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Ordina nodi per distanza se userPosition è disponibile
+    final sortedNodes = List<MeshtasticNode>.from(nodes);
+    if (userPosition != null) {
+      sortedNodes.sort((a, b) {
+        final distA = const Distance().as(LengthUnit.Meter, userPosition!, a.position);
+        final distB = const Distance().as(LengthUnit.Meter, userPosition!, b.position);
+        return distA.compareTo(distB);
+      });
+    }
+
+    return AlertDialog(
+      title: Row(
+        children: [
+          const Icon(Icons.people, color: Colors.green),
+          const SizedBox(width: 12),
+          Text('Nodi (${nodes.length})'),
+        ],
+      ),
+      content: SizedBox(
+        width: double.maxFinite,
+        height: 400,
+        child: nodes.isEmpty
+            ? const Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.people_outline, size: 64, color: Colors.grey),
+                    SizedBox(height: 16),
+                    Text(
+                      'Nessun nodo trovato',
+                      style: TextStyle(color: Colors.grey),
+                    ),
+                  ],
+                ),
+              )
+            : ListView.builder(
+                itemCount: sortedNodes.length,
+                itemBuilder: (context, index) {
+                  final node = sortedNodes[index];
+                  final distance = _formatDistance(node);
+                  final lastUpdate = _formatLastUpdate(node);
+
+                  return ListTile(
+                    leading: CircleAvatar(
+                      backgroundColor: Colors.green.shade100,
+                      child: Text(
+                        node.name.isNotEmpty ? node.name[0].toUpperCase() : '?',
+                        style: const TextStyle(
+                          color: Colors.green,
+                          fontWeight: FontWeight.bold,
+                        ),
+                      ),
+                    ),
+                    title: Text(
+                      node.name,
+                      style: const TextStyle(fontWeight: FontWeight.w500),
+                    ),
+                    subtitle: Wrap(
+                      spacing: 12,
+                      runSpacing: 4,
+                      children: [
+                        if (distance.isNotEmpty)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(Icons.straighten, size: 14, color: Colors.grey.shade600),
+                              const SizedBox(width: 4),
+                              Text(distance, style: TextStyle(color: Colors.grey.shade600)),
+                            ],
+                          ),
+                        Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(Icons.access_time, size: 14, color: Colors.grey.shade600),
+                            const SizedBox(width: 4),
+                            Text(lastUpdate, style: TextStyle(color: Colors.grey.shade600)),
+                          ],
+                        ),
+                        if (node.batteryLevel >= 0)
+                          Row(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Icon(
+                                node.batteryLevel > 20 ? Icons.battery_std : Icons.battery_alert,
+                                size: 14,
+                                color: node.batteryLevel > 20 ? Colors.grey.shade600 : Colors.orange,
+                              ),
+                              const SizedBox(width: 4),
+                              Text(
+                                '${node.batteryLevel}%',
+                                style: TextStyle(
+                                  color: node.batteryLevel > 20 ? Colors.grey.shade600 : Colors.orange,
+                                ),
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                    trailing: const Icon(Icons.my_location, color: Colors.blue),
+                    onTap: () => onNodeSelected(node),
+                  );
+                },
+              ),
+      ),
+      actions: [
+        TextButton(
+          onPressed: () => Navigator.of(context).pop(),
+          child: const Text('Chiudi'),
+        ),
       ],
     );
   }

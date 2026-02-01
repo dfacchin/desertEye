@@ -325,14 +325,20 @@ class MeshtasticService {
       // Emit connecting status
       _reconnectStatusController.add(ReconnectStatus.connecting);
 
-      // Clear reconnecting flag before connecting
+      await _client!.connectToDevice(foundDevice);
+
+      // Connection successful - stop reconnect timer BEFORE setting up listeners
+      // to prevent false disconnection events from triggering another reconnect
+      _reconnectTimer?.cancel();
+      _reconnectTimer = null;
       _isReconnecting = false;
 
-      await _client!.connectToDevice(foundDevice);
       _setupListeners();
 
-      // Connection successful - stop reconnect timer
-      _stopReconnectTimer();
+      // Update the device ID for future reconnections
+      _lastConnectedDeviceId = foundDevice.remoteId.toString();
+      _wasConnectedBefore = true;
+
       _connectionController.add(true);
       _reconnectStatusController.add(ReconnectStatus.connected);
 

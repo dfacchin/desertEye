@@ -512,6 +512,13 @@ class _SosConfirmDialogState extends State<_SosConfirmDialog>
   @override
   Widget build(BuildContext context) {
     final progress = (_countdownSeconds - _countdown) / _countdownSeconds;
+    final isLandscape = MediaQuery.of(context).orientation == Orientation.landscape;
+
+    // Dimensioni ridotte per landscape
+    final countdownSize = isLandscape ? 70.0 : 100.0;
+    final countdownFontSize = isLandscape ? 32.0 : 42.0;
+    final sliderHeight = isLandscape ? 44.0 : 56.0;
+    final thumbSize = isLandscape ? 36.0 : 48.0;
 
     return PopScope(
       canPop: false, // Impedisce di chiudere con back button
@@ -521,6 +528,7 @@ class _SosConfirmDialogState extends State<_SosConfirmDialog>
           borderRadius: BorderRadius.circular(16),
           side: const BorderSide(color: Colors.red, width: 3),
         ),
+        contentPadding: EdgeInsets.fromLTRB(20, isLandscape ? 8 : 20, 20, isLandscape ? 12 : 24),
         title: AnimatedBuilder(
           animation: _pulseAnimation,
           builder: (context, child) => Transform.scale(
@@ -530,242 +538,194 @@ class _SosConfirmDialogState extends State<_SosConfirmDialog>
           child: Row(
             children: [
               Container(
-                padding: const EdgeInsets.all(8),
+                padding: EdgeInsets.all(isLandscape ? 6 : 8),
                 decoration: BoxDecoration(
                   color: Colors.red.withAlpha(80),
                   shape: BoxShape.circle,
                 ),
-                child: const Icon(Icons.sos, color: Colors.red, size: 28),
+                child: Icon(Icons.sos, color: Colors.red, size: isLandscape ? 22 : 28),
               ),
               const SizedBox(width: 12),
-              const Expanded(
+              Expanded(
                 child: Text(
                   'SOS IN PARTENZA',
                   style: TextStyle(
                     color: Colors.red,
                     fontWeight: FontWeight.bold,
-                    fontSize: 18,
+                    fontSize: isLandscape ? 16 : 18,
                   ),
                 ),
               ),
             ],
           ),
         ),
-        content: Column(
+        content: SingleChildScrollView(
+          child: isLandscape ? _buildLandscapeContent(progress, countdownSize, countdownFontSize, sliderHeight, thumbSize) : _buildPortraitContent(progress, countdownSize, countdownFontSize, sliderHeight, thumbSize),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildPortraitContent(double progress, double countdownSize, double countdownFontSize, double sliderHeight, double thumbSize) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        _buildCountdown(progress, countdownSize, countdownFontSize),
+        const SizedBox(height: 20),
+        _buildGpsInfo(),
+        const SizedBox(height: 24),
+        _buildCancelSlider(sliderHeight, thumbSize),
+        const SizedBox(height: 16),
+        _buildHelpText(),
+      ],
+    );
+  }
+
+  Widget _buildLandscapeContent(double progress, double countdownSize, double countdownFontSize, double sliderHeight, double thumbSize) {
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Row(
           mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.center,
           children: [
-            // Countdown grande
-            Container(
-              width: 100,
-              height: 100,
-              decoration: BoxDecoration(
-                shape: BoxShape.circle,
-                color: Colors.red.withAlpha(30),
-                border: Border.all(color: Colors.red, width: 4),
-              ),
-              child: Stack(
-                alignment: Alignment.center,
+            _buildCountdown(progress, countdownSize, countdownFontSize),
+            const SizedBox(width: 16),
+            Flexible(
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
-                  // Progress circle
-                  SizedBox(
-                    width: 90,
-                    height: 90,
-                    child: CircularProgressIndicator(
-                      value: progress,
-                      strokeWidth: 6,
-                      backgroundColor: Colors.grey.shade800,
-                      valueColor: AlwaysStoppedAnimation<Color>(
-                        _countdown <= 3 ? Colors.orange : Colors.red,
-                      ),
-                    ),
-                  ),
-                  // Countdown number
-                  Text(
-                    '$_countdown',
-                    style: TextStyle(
-                      color: _countdown <= 3 ? Colors.orange : Colors.white,
-                      fontSize: 42,
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
+                  _buildGpsInfo(),
+                  const SizedBox(height: 8),
+                  _buildHelpText(),
                 ],
-              ),
-            ),
-
-            const SizedBox(height: 20),
-
-            // Info messaggio
-            Container(
-              padding: const EdgeInsets.all(10),
-              decoration: BoxDecoration(
-                color: Colors.black26,
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    widget.userPosition != null
-                        ? Icons.location_on
-                        : Icons.location_off,
-                    color: widget.userPosition != null
-                        ? Colors.green
-                        : Colors.orange,
-                    size: 18,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      widget.userPosition != null
-                          ? 'GPS: ${widget.userPosition!.latitude.toStringAsFixed(4)}, ${widget.userPosition!.longitude.toStringAsFixed(4)}'
-                          : 'GPS non disponibile',
-                      style: const TextStyle(color: Colors.white70, fontSize: 12),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 24),
-
-            // Slider per annullare
-            const Text(
-              'SCORRI PER ANNULLARE',
-              style: TextStyle(
-                color: Colors.green,
-                fontWeight: FontWeight.bold,
-                fontSize: 12,
-              ),
-            ),
-            const SizedBox(height: 8),
-
-            Container(
-              height: 56,
-              decoration: BoxDecoration(
-                color: Colors.grey.shade800,
-                borderRadius: BorderRadius.circular(28),
-                border: Border.all(color: Colors.green.withAlpha(100), width: 2),
-              ),
-              child: Stack(
-                children: [
-                  // Track di sfondo con gradiente
-                  Positioned.fill(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(26),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            flex: (_sliderValue * 100).toInt().clamp(1, 100),
-                            child: Container(
-                              decoration: BoxDecoration(
-                                gradient: LinearGradient(
-                                  colors: [
-                                    Colors.green.withAlpha(100),
-                                    Colors.green.withAlpha(50),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          Expanded(
-                            flex: (100 - _sliderValue * 100).toInt().clamp(1, 100),
-                            child: const SizedBox(),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-
-                  // Testo centrale
-                  Center(
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Icon(
-                          Icons.arrow_forward,
-                          color: Colors.green.withAlpha(150),
-                          size: 16,
-                        ),
-                        Icon(
-                          Icons.arrow_forward,
-                          color: Colors.green.withAlpha(180),
-                          size: 16,
-                        ),
-                        Icon(
-                          Icons.arrow_forward,
-                          color: Colors.green.withAlpha(220),
-                          size: 16,
-                        ),
-                        const SizedBox(width: 8),
-                        Text(
-                          'ANNULLA',
-                          style: TextStyle(
-                            color: Colors.green.shade300,
-                            fontWeight: FontWeight.bold,
-                            fontSize: 14,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-
-                  // Slider thumb
-                  Positioned(
-                    left: _sliderValue * (MediaQuery.of(context).size.width - 120 - 52),
-                    top: 4,
-                    child: GestureDetector(
-                      onHorizontalDragUpdate: (details) {
-                        final width = MediaQuery.of(context).size.width - 120 - 52;
-                        final newValue = (_sliderValue + details.delta.dx / width).clamp(0.0, 1.0);
-                        _onSliderChanged(newValue);
-                      },
-                      onHorizontalDragEnd: (_) {
-                        // Reset se non completato
-                        if (_sliderValue < 0.95) {
-                          setState(() => _sliderValue = 0.0);
-                        }
-                      },
-                      child: Container(
-                        width: 48,
-                        height: 48,
-                        decoration: BoxDecoration(
-                          gradient: LinearGradient(
-                            colors: [Colors.green.shade400, Colors.green.shade700],
-                            begin: Alignment.topLeft,
-                            end: Alignment.bottomRight,
-                          ),
-                          shape: BoxShape.circle,
-                          boxShadow: [
-                            BoxShadow(
-                              color: Colors.green.withAlpha(150),
-                              blurRadius: 8,
-                              offset: const Offset(0, 2),
-                            ),
-                          ],
-                        ),
-                        child: const Icon(
-                          Icons.close,
-                          color: Colors.white,
-                          size: 28,
-                        ),
-                      ),
-                    ),
-                  ),
-                ],
-              ),
-            ),
-
-            const SizedBox(height: 16),
-
-            Text(
-              'Il messaggio SOS verrà inviato automaticamente\nse non annulli entro $_countdown secondi',
-              textAlign: TextAlign.center,
-              style: TextStyle(
-                color: Colors.grey.shade500,
-                fontSize: 11,
               ),
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _buildCancelSlider(sliderHeight, thumbSize),
+      ],
+    );
+  }
+
+  Widget _buildCountdown(double progress, double size, double fontSize) {
+    return Container(
+      width: size,
+      height: size,
+      decoration: BoxDecoration(
+        shape: BoxShape.circle,
+        color: Colors.red.withAlpha(30),
+        border: Border.all(color: Colors.red, width: 4),
+      ),
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          // Progress circle
+          SizedBox(
+            width: size - 10,
+            height: size - 10,
+            child: CircularProgressIndicator(
+              value: progress,
+              strokeWidth: 6,
+              backgroundColor: Colors.grey.shade800,
+              valueColor: AlwaysStoppedAnimation<Color>(
+                _countdown <= 3 ? Colors.orange : Colors.red,
+              ),
+            ),
+          ),
+          // Countdown number
+          Text(
+            '$_countdown',
+            style: TextStyle(
+              color: _countdown <= 3 ? Colors.orange : Colors.white,
+              fontSize: fontSize,
+              fontWeight: FontWeight.bold,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildGpsInfo() {
+    return Container(
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: Colors.black26,
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            widget.userPosition != null
+                ? Icons.location_on
+                : Icons.location_off,
+            color: widget.userPosition != null
+                ? Colors.green
+                : Colors.orange,
+            size: 18,
+          ),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Text(
+              widget.userPosition != null
+                  ? 'GPS: ${widget.userPosition!.latitude.toStringAsFixed(4)}, ${widget.userPosition!.longitude.toStringAsFixed(4)}'
+                  : 'GPS non disponibile',
+              style: const TextStyle(color: Colors.white70, fontSize: 12),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCancelSlider(double sliderHeight, double thumbSize) {
+    // Usa un Slider standard di Flutter per evitare problemi di layout
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        const Text(
+          'SCORRI PER ANNULLARE',
+          style: TextStyle(
+            color: Colors.green,
+            fontWeight: FontWeight.bold,
+            fontSize: 12,
+          ),
+        ),
+        const SizedBox(height: 8),
+        SliderTheme(
+          data: SliderThemeData(
+            trackHeight: sliderHeight - 16,
+            activeTrackColor: Colors.green.withAlpha(100),
+            inactiveTrackColor: Colors.grey.shade800,
+            thumbColor: Colors.green,
+            overlayColor: Colors.green.withAlpha(50),
+            thumbShape: RoundSliderThumbShape(enabledThumbRadius: thumbSize / 2),
+            trackShape: const RoundedRectSliderTrackShape(),
+          ),
+          child: Slider(
+            value: _sliderValue,
+            onChanged: _onSliderChanged,
+            onChangeEnd: (value) {
+              if (value < 0.95) {
+                setState(() => _sliderValue = 0.0);
+              }
+            },
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHelpText() {
+    return Text(
+      'Il messaggio SOS verrà inviato automaticamente\nse non annulli entro $_countdown secondi',
+      textAlign: TextAlign.center,
+      style: TextStyle(
+        color: Colors.grey.shade500,
+        fontSize: 11,
       ),
     );
   }

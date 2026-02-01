@@ -15,6 +15,7 @@ class MapControls extends StatefulWidget {
   final VoidCallback onToggleTracking;
   final VoidCallback onToggleMeshtastic;
   final VoidCallback onToggleOrientation;
+  final VoidCallback? onShowNodeList;
   final bool hasLocation;
   final bool isOnline;
   final bool hasGpxTracks;
@@ -23,6 +24,7 @@ class MapControls extends StatefulWidget {
   final int meshtasticNodeCount;
   final bool isLandscape;
   final bool isReconnecting;
+  final bool isAutoConnecting;
 
   const MapControls({
     super.key,
@@ -33,6 +35,7 @@ class MapControls extends StatefulWidget {
     required this.onToggleTracking,
     required this.onToggleMeshtastic,
     required this.onToggleOrientation,
+    this.onShowNodeList,
     required this.hasLocation,
     required this.isOnline,
     this.hasGpxTracks = false,
@@ -41,6 +44,7 @@ class MapControls extends StatefulWidget {
     this.meshtasticNodeCount = 0,
     this.isLandscape = false,
     this.isReconnecting = false,
+    this.isAutoConnecting = false,
   });
 
   @override
@@ -51,6 +55,9 @@ class _MapControlsState extends State<MapControls>
     with SingleTickerProviderStateMixin {
   late AnimationController _radarController;
 
+  // True when either reconnecting or auto-connecting
+  bool get _isConnecting => widget.isReconnecting || widget.isAutoConnecting;
+
   @override
   void initState() {
     super.initState();
@@ -59,7 +66,7 @@ class _MapControlsState extends State<MapControls>
       duration: const Duration(milliseconds: 2500),
     );
 
-    if (widget.isReconnecting) {
+    if (_isConnecting) {
       _radarController.repeat();
     }
   }
@@ -67,9 +74,10 @@ class _MapControlsState extends State<MapControls>
   @override
   void didUpdateWidget(MapControls oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (widget.isReconnecting && !oldWidget.isReconnecting) {
+    final wasConnecting = oldWidget.isReconnecting || oldWidget.isAutoConnecting;
+    if (_isConnecting && !wasConnecting) {
       _radarController.repeat();
-    } else if (!widget.isReconnecting && oldWidget.isReconnecting) {
+    } else if (!_isConnecting && wasConnecting) {
       _radarController.stop();
       _radarController.reset();
     }
@@ -83,132 +91,201 @@ class _MapControlsState extends State<MapControls>
 
   @override
   Widget build(BuildContext context) {
+    if (widget.isLandscape) {
+      return _buildLandscapeLayout();
+    }
+    return _buildPortraitLayout();
+  }
+
+  Widget _buildPortraitLayout() {
     return Column(
       mainAxisSize: MainAxisSize.min,
       children: [
-        // Orientation toggle button
-        FloatingActionButton(
-          heroTag: 'orientation',
-          onPressed: widget.onToggleOrientation,
-          tooltip:
-              widget.isLandscape ? 'Modalità portrait' : 'Modalità landscape',
-          backgroundColor:
-              widget.isLandscape ? Colors.purple.shade100 : Colors.white,
-          child: Icon(
-            widget.isLandscape
-                ? Icons.stay_current_portrait
-                : Icons.stay_current_landscape,
-            color: widget.isLandscape ? Colors.purple : Colors.grey,
-          ),
-        ),
+        _buildOrientationButton(),
         const SizedBox(height: 16),
+        _buildMeshtasticButton(),
+        const SizedBox(height: 16),
+        if (widget.isMeshtasticConnected && widget.meshtasticNodeCount > 0) ...[
+          _buildNodeListButton(),
+          const SizedBox(height: 16),
+        ],
+        if (widget.isOnline) ...[
+          _buildDownloadButton(),
+          const SizedBox(height: 16),
+        ],
+        _buildTrackingButton(),
+        const SizedBox(height: 16),
+        _buildLoadGpxButton(),
+        if (widget.hasGpxTracks) ...[
+          const SizedBox(height: 16),
+          _buildClearTracksButton(),
+        ],
+      ],
+    );
+  }
 
-        // Meshtastic Bluetooth button with radar animation
-        Stack(
-          alignment: Alignment.center,
+  Widget _buildLandscapeLayout() {
+    return Row(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        // Prima colonna
+        Column(
+          mainAxisSize: MainAxisSize.min,
           children: [
-            // Radar animation rings (visible only when reconnecting)
-            if (widget.isReconnecting) ...[
-              _buildRadarRing(0.0),
-              _buildRadarRing(0.5),
+            _buildOrientationButton(),
+            const SizedBox(height: 12),
+            _buildMeshtasticButton(),
+            const SizedBox(height: 12),
+            if (widget.isMeshtasticConnected && widget.meshtasticNodeCount > 0) ...[
+              _buildNodeListButton(),
+              const SizedBox(height: 12),
             ],
-            // Main button
-            FloatingActionButton(
-              heroTag: 'meshtastic',
-              onPressed: widget.onToggleMeshtastic,
-              tooltip: widget.isMeshtasticConnected
-                  ? 'Disconnetti Meshtastic'
+            if (widget.isOnline) _buildDownloadButton(),
+          ],
+        ),
+        const SizedBox(width: 12),
+        // Seconda colonna
+        Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            _buildTrackingButton(),
+            const SizedBox(height: 12),
+            _buildLoadGpxButton(),
+            if (widget.hasGpxTracks) ...[
+              const SizedBox(height: 12),
+              _buildClearTracksButton(),
+            ],
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _buildOrientationButton() {
+    return FloatingActionButton(
+      heroTag: 'orientation',
+      onPressed: widget.onToggleOrientation,
+      tooltip: widget.isLandscape ? 'Modalità portrait' : 'Modalità landscape',
+      backgroundColor: widget.isLandscape ? Colors.purple.shade100 : Colors.white,
+      child: Icon(
+        widget.isLandscape ? Icons.stay_current_portrait : Icons.stay_current_landscape,
+        color: widget.isLandscape ? Colors.purple : Colors.grey,
+      ),
+    );
+  }
+
+  Widget _buildMeshtasticButton() {
+    return Stack(
+      alignment: Alignment.center,
+      children: [
+        if (_isConnecting) ...[
+          _buildRadarRing(0.0),
+          _buildRadarRing(0.5),
+        ],
+        FloatingActionButton(
+          heroTag: 'meshtastic',
+          // Disable button when connecting/configuring
+          onPressed: _isConnecting ? null : widget.onToggleMeshtastic,
+          tooltip: widget.isMeshtasticConnected
+              ? 'Disconnetti Meshtastic'
+              : widget.isAutoConnecting
+                  ? 'Connessione in corso...'
                   : widget.isReconnecting
                       ? 'Riconnessione in corso...'
                       : 'Connetti Meshtastic',
-              backgroundColor: widget.isMeshtasticConnected
-                  ? Colors.green.shade100
-                  : widget.isReconnecting
-                      ? Colors.orange.shade100
-                      : Colors.white,
-              child: Icon(
-                widget.isMeshtasticConnected
-                    ? Icons.bluetooth_connected
-                    : widget.isReconnecting
-                        ? Icons.bluetooth_searching
-                        : Icons.bluetooth,
-                color: widget.isMeshtasticConnected
-                    ? Colors.green
-                    : widget.isReconnecting
-                        ? Colors.orange
-                        : Colors.grey,
+          backgroundColor: widget.isMeshtasticConnected
+              ? Colors.green.shade100
+              : _isConnecting
+                  ? Colors.blue.shade100
+                  : Colors.white,
+          child: Icon(
+            widget.isMeshtasticConnected
+                ? Icons.bluetooth_connected
+                : _isConnecting
+                    ? Icons.bluetooth_searching
+                    : Icons.bluetooth,
+            color: widget.isMeshtasticConnected
+                ? Colors.green
+                : _isConnecting
+                    ? Colors.blue
+                    : Colors.grey,
+          ),
+        ),
+        if (widget.isMeshtasticConnected && widget.meshtasticNodeCount > 0)
+          Positioned(
+            right: 0,
+            top: 0,
+            child: Container(
+              padding: const EdgeInsets.all(4),
+              decoration: const BoxDecoration(
+                color: Colors.green,
+                shape: BoxShape.circle,
+              ),
+              constraints: const BoxConstraints(
+                minWidth: 20,
+                minHeight: 20,
+              ),
+              child: Text(
+                '${widget.meshtasticNodeCount}',
+                style: const TextStyle(
+                  color: Colors.white,
+                  fontSize: 10,
+                  fontWeight: FontWeight.bold,
+                ),
+                textAlign: TextAlign.center,
               ),
             ),
-            // Badge con numero nodi
-            if (widget.isMeshtasticConnected && widget.meshtasticNodeCount > 0)
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  padding: const EdgeInsets.all(4),
-                  decoration: const BoxDecoration(
-                    color: Colors.green,
-                    shape: BoxShape.circle,
-                  ),
-                  constraints: const BoxConstraints(
-                    minWidth: 20,
-                    minHeight: 20,
-                  ),
-                  child: Text(
-                    '${widget.meshtasticNodeCount}',
-                    style: const TextStyle(
-                      color: Colors.white,
-                      fontSize: 10,
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.center,
-                  ),
-                ),
-              ),
-          ],
-        ),
-        const SizedBox(height: 16),
-
-        // Download map button (solo online)
-        if (widget.isOnline)
-          FloatingActionButton(
-            heroTag: 'download',
-            onPressed: widget.onDownloadMap,
-            tooltip: 'Scarica mappa offline',
-            child: const Icon(Icons.download),
           ),
-        if (widget.isOnline) const SizedBox(height: 16),
-
-        // Tracking/Recenter button
-        FloatingActionButton(
-          heroTag: 'tracking',
-          onPressed: widget.hasLocation ? widget.onToggleTracking : widget.onRecenter,
-          tooltip: _getTrackingTooltip(),
-          backgroundColor: _getTrackingColor(),
-          child: _getTrackingIcon(),
-        ),
-        const SizedBox(height: 16),
-
-        // Load GPX button
-        FloatingActionButton(
-          heroTag: 'loadgpx',
-          onPressed: widget.onLoadGpx,
-          tooltip: 'Carica traccia GPX',
-          child: const Icon(Icons.file_open),
-        ),
-
-        // Clear tracks button (solo se ci sono tracce)
-        if (widget.hasGpxTracks) ...[
-          const SizedBox(height: 16),
-          FloatingActionButton(
-            heroTag: 'clearTracks',
-            onPressed: widget.onClearTracks,
-            tooltip: 'Cancella tracce',
-            backgroundColor: Colors.red.shade100,
-            child: const Icon(Icons.clear_all),
-          ),
-        ],
       ],
+    );
+  }
+
+  Widget _buildNodeListButton() {
+    return FloatingActionButton(
+      heroTag: 'nodeList',
+      onPressed: widget.onShowNodeList,
+      tooltip: 'Lista nodi',
+      backgroundColor: Colors.green.shade50,
+      child: const Icon(Icons.people, color: Colors.green),
+    );
+  }
+
+  Widget _buildDownloadButton() {
+    return FloatingActionButton(
+      heroTag: 'download',
+      onPressed: widget.onDownloadMap,
+      tooltip: 'Scarica mappa offline',
+      child: const Icon(Icons.download),
+    );
+  }
+
+  Widget _buildTrackingButton() {
+    return FloatingActionButton(
+      heroTag: 'tracking',
+      onPressed: widget.hasLocation ? widget.onToggleTracking : widget.onRecenter,
+      tooltip: _getTrackingTooltip(),
+      backgroundColor: _getTrackingColor(),
+      child: _getTrackingIcon(),
+    );
+  }
+
+  Widget _buildLoadGpxButton() {
+    return FloatingActionButton(
+      heroTag: 'loadgpx',
+      onPressed: widget.onLoadGpx,
+      tooltip: 'Carica traccia GPX',
+      child: const Icon(Icons.file_open),
+    );
+  }
+
+  Widget _buildClearTracksButton() {
+    return FloatingActionButton(
+      heroTag: 'clearTracks',
+      onPressed: widget.onClearTracks,
+      tooltip: 'Cancella tracce',
+      backgroundColor: Colors.red.shade100,
+      child: const Icon(Icons.clear_all),
     );
   }
 
